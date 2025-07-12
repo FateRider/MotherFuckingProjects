@@ -1,148 +1,187 @@
+/*--- Library maneger ---*/
 #include <iostream>
+#include <mariadb/mysql.h>
 #include <string>
-#include <vector>
-class book {
-    public:
-    std::string title , author;
-    bool isBorrowed;
 
-    book(const std::string t,const std::string a): title(t), author(a), isBorrowed(0) {};
+class dbManager {
+  private:
+    MYSQL *conn;
 
-    //borrow
-    void borrow() {
-        if(!isBorrowed) {
-            isBorrowed = true;
-            std::cout << "-[" << title << "]->" << "Has been borrowed\\ \n";
-        }else {
-            std::cout << "-[" << title << "]->" << "is already borrowed\\ \n";
+  public:
+    // DataBase connection
+    dbManager(const char *hostname, const char *username, const char *password, const char *db) {
+        conn = mysql_init(nullptr);
+        if (!conn) { throw std::runtime_error("MySql İnit fail!"); }
+
+        if (!mysql_real_connect(conn, hostname, username, password, db, 0, NULL, 0)) {
+            std::string error = mysql_error(conn);
+            mysql_close(conn);
+            conn = nullptr;
+            throw std::runtime_error("Connection error :" + error);
         }
-    };
-    
-    //Givebeback
-    void giveback(){
-        if(isBorrowed) {
-            isBorrowed = false;
-            std::cout << "-[" << title << "]->" << "has been returned\\ \n";
-        }else {
-            std::cout << "-[" << title << "]->" << "was not borrowed\\ \n";
-        }
-    };
-
-};
-
-
-std::ostream &operator<<(std::ostream &bookprint, const book &book){
-    bookprint << "Title :" << book.title << std::endl
-    << "Author :" << book.author << std::endl
-    << "status :" << (book.isBorrowed ? "Borrowed" : "Available" ) << std::endl;
-    return bookprint;
-}
-
-class Library {
-    private:
-
-    std::vector<book*> books;
-
-    public:
-
-    void addBook(book* book) {
-        books.push_back(book);
-        std::cout << "-[" << book->title << "]->" << "added to library\\ \n";
     }
 
-    void listbooks() const {
-
-        std::cout << "\n--- Library envanter ---\n";
-
-        for(const auto &a : books) {
-            std::cout << " -" << *a << std::endl;
-        }
-        std::cout << "-- Book not found! --\n";
+    // Database close
+    ~dbManager() {
+        if (conn) mysql_close(conn);
     }
 
-    void borrowBook(const std::string &title){
+    // Add book
+    void addbook(const std::string &title, const std::string &author) {
+        std::string query = "INSERT INTO books (title, author, available) VALUES ('" + title + "', '" + author + "', true)";
+        if (mysql_query(conn, query.c_str())) {
+            std::cerr << "Add book error : " << mysql_error(conn) << std::endl;
+            return;
+        } else {
+            std::cout << "-[" << title << "]->" << " added to database.\n";
+        }
+    }
 
-        for(auto &book : books){
-            if(book->title==title) {
-                book->borrow();
-                return;
+    // list book
+    void listBooks() {
+        const char *query = "SELECT title, author, available FROM books";
+        if (mysql_query(conn, query)) {
+            std::cerr << "list query Error :" << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        if (!result) {
+            std::cerr << "Result Error :" << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_ROW row;
+        std::cout << "\n--- Books in Library ---\n";
+        while ((row = mysql_fetch_row(result))) {
+            std::string status = (std::string(row[2]) == "1") ? "available" : "Borrowed";
+            std::cout << "Title: " << row[0] << "\nAuthor: " << row[1] << "\n---\n";
+        }
+
+        mysql_free_result(result);
+    }
+
+    // Borrow Book
+    void borrowBook(const std::string &title) {
+        std::string bookQuery = "SELECT available FROM books WHERE title='" + title + "'";
+        if (mysql_query(conn, bookQuery.c_str())) {
+            std::cerr << "Borrow Error :" << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        if (!result) {
+            std::cerr << "Result error: " << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row) {
+            if (std::string(row[0]) == "1") {
+                std::string updateQuery = "UPDATE books SET available=false WHERE title='" + title + "'";
+                if (mysql_query(conn, updateQuery.c_str())) {
+                    std::cerr << "Update Error :" << mysql_error(conn) << std::endl;
+                    return;
+                } else {
+                    std::cout << "-[" << title << "]-> borrowed.\n";
+                }
             }
-        }
-        std::cout << "Book not found.\n";
 
+        } else {
+            std::cout << "Book not found \n";
+        }
+
+        mysql_free_result(result);
     }
-    
+
+    // Return Book
     void returnBook(const std::string &title) {
-        
-        for(auto &book : books) {
-            if(book->title == title) {
-                book->giveback();
-                return;
+        std::string bookQuery = "SELECT available FROM books WHERE title='" + title + "'";
+        if (mysql_query(conn, bookQuery.c_str())) {
+            std::cerr << "Return Error :" << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_RES *result = mysql_store_result(conn);
+        if (!result) {
+            std::cerr << "Result error: " << mysql_error(conn) << std::endl;
+            return;
+        }
+
+        MYSQL_ROW row = mysql_fetch_row(result);
+        if (row) {
+            if (std::string(row[0]) == "0") {
+                std::string updateQuery = "UPDATE books SET available=true WHERE title='" + title + "'";
+                if (mysql_query(conn, updateQuery.c_str())) {
+                    std::cerr << "Update Queary Error :" << mysql_error(conn);
+                    return;
+                } else {
+                    std::cout << "-[" << title << "]-> Returned.\n";
+                }
+            } else {
+                std::cout << "-[" << title << "]-> Was not borrowed.\n";
             }
-        }
-        std::cout << "-- Book not found! --\n";
-    }
 
-    ~Library() {
-        for (auto& book : books) {
-            delete book;
+        } else {
+            std::cout << "Book not found \n";
         }
-    }
 
+        mysql_free_result(result);
+    }
 };
 
 int main() {
-    Library lib;
-    int choice;
+    try {
 
-    while (true){
-        std::cout << "\n--- Library Menu ---\n";
-        std::cout << "1. Add Book\n";
-        std::cout << "2. List Books\n";
-        std::cout << "3. Borrow Book\n";
-        std::cout << "4. Return Book\n";
-        std::cout << "0. Exit\n";
-        std::cout << "Choice: ";
-        std::cin >> choice;
+        dbManager db("localhost", "root", "12308363602", "Library");
+        int choice;
 
-        std::cin.ignore();
-        
-        if(choice == 0) {
-            break;
-        }
+        while (true) {
+            std::cout << "\n--- Library Menu ---\n";
+            std::cout << "1. Add Book\n";
+            std::cout << "2. List Books\n";
+            std::cout << "3. Borrow Book\n";
+            std::cout << "4. Return Book\n";
+            std::cout << "0. Exit\n";
+            std::cout << "Choice: ";
+            std::cin >> choice;
 
-        std::string author,title;
+            std::cin.ignore();
 
-        switch (choice) {
+            if (choice == 0) { break; }
+
+            std::string author, title;
+
+            switch (choice) {
             case 1:
                 std::cout << "Title : ";
                 std::getline(std::cin, title);
                 std::cout << "Author : ";
                 std::getline(std::cin, author);
-                lib.addBook(new book(title, author));
-            break;
+                db.addbook(title, author);
+                break;
 
             case 2:
-                lib.listbooks();
-            break;
+                db.listBooks();
+                break;
 
             case 3:
                 std::cout << "Book title to borrow : ";
                 std::getline(std::cin, title);
-                lib.borrowBook(title);
-            break;
+                db.borrowBook(title);
+                break;
 
             case 4:
                 std::cout << "Book title to return : ";
                 std::getline(std::cin, title);
-                lib.returnBook(title);
-            break;
+                db.returnBook(title);
+                break;
 
             default:
-            std::cout << "Invalid choice!\n";
-            
+                std::cout << "Invalid choice!\n";
+            }
         }
-    }
+    } catch (const std::exception &e) { std::cerr << "Fatal :" << e.what() << std::endl; }
 
     std::cout << "exiting ... \n";
     return 0;
