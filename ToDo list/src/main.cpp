@@ -1,31 +1,28 @@
 /*-- ToDo List --*/
+#include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-#include <fstream>
-#include <nlohmann/json.hpp>
 
 using namespace std;
 using json = nlohmann::json;
 
 class listelement {
-    public:
-
+  public:
     string header;
     string description;
     bool status;
-
 };
 
-class ToDoList{
-    public:
-    
+class ToDoList {
+  public:
     string listName;
-    
+
     vector<listelement> listdb;
 };
 
-void add(ToDoList &todolist,string x,string y,bool z) {
+void add(ToDoList &todolist, string x, string y, bool z) {
 
     listelement newelement;
 
@@ -36,18 +33,13 @@ void add(ToDoList &todolist,string x,string y,bool z) {
     todolist.listdb.push_back(newelement);
 }
 
-void adddb(vector<ToDoList> &dbentry){
-
+void adddb(vector<ToDoList> &dbentry) {
 
     json TodolistDb;
 
-    for (const auto& todolist : dbentry) {
-        for (const auto& item : todolist.listdb) {
-            TodolistDb[todolist.listName].push_back({
-                {"header", item.header},
-                {"description", item.description},
-                {"status", item.status}
-            });
+    for (const auto &todolist : dbentry) {
+        for (const auto &item : todolist.listdb) {
+            TodolistDb[todolist.listName].push_back({{"header", item.header}, {"description", item.description}, {"status", item.status}});
         }
     }
 
@@ -63,10 +55,10 @@ vector<ToDoList> loaddb() {
     json TodolistDb;
     TodoDataBase >> TodolistDb;
 
-    for (auto& [listName, elements] : TodolistDb.items()) {
+    for (auto &[listName, elements] : TodolistDb.items()) {
         ToDoList list;
         list.listName = listName;
-        for (auto& el : elements) {
+        for (auto &el : elements) {
             listelement item;
             item.header = el["header"];
             item.description = el["description"];
@@ -79,42 +71,40 @@ vector<ToDoList> loaddb() {
     return db;
 }
 
-
 int main() {
-        
+
     vector<ToDoList> db = loaddb();
     string filename;
-    string entry1 , entry2 , statusInput;
+    string entry1, entry2, statusInput;
     bool entry3;
-    
-    
-    if (db.empty()){
+
+    if (db.empty()) {
 
         cout << "Please enter new TodoList name \n";
-        getline(cin,filename);
-        
+        getline(cin, filename);
+
         ToDoList userlist;
-        userlist.listName = filename; 
-        
-        for (int query = 3 ; query > 0;){
-            
+        userlist.listName = filename;
+
+        for (int query = 3; query > 0;) {
+
             cout << "Plase enter new list element header \n";
-            getline(cin,entry1);
-            
+            getline(cin, entry1);
+
             cout << "Plase enter new list element description \n";
-            getline(cin,entry2);
-            
+            getline(cin, entry2);
+
             cout << "Plase enter new list status \n";
             cin >> statusInput;
-            
-            for (char& c : statusInput) c = tolower(c);
-        
-            if(statusInput == "true" || statusInput == "1" || statusInput == "yes"){
+
+            for (char &c : statusInput)
+                c = tolower(c);
+
+            if (statusInput == "true" || statusInput == "1" || statusInput == "yes") {
                 entry3 = true;
-            }else{
+            } else {
                 entry3 = false;
             }
-
 
             cout << "Again creat new todo ? \n";
             cout << "yes = 1 \n";
@@ -125,18 +115,17 @@ int main() {
             cin.clear();
             cin.ignore(10000, '\n');
 
-            add(userlist,entry1,entry2,entry3);
-            
+            add(userlist, entry1, entry2, entry3);
         }
 
         db.push_back(userlist);
         adddb(db);
 
-    }else{
+    } else {
 
         cout << "\n -- Mevcut listeler -- \n";
         int i = 1;
-        for(auto lists : db){
+        for (auto lists : db) {
             cout << i << ' ' << lists.listName << endl;
             i++;
         }
@@ -150,32 +139,32 @@ int main() {
         cin.clear();
         cin.ignore(10000, '\n');
 
-        if (select==0) {
+        if (select == 0) {
             cout << "Please enter new TodoList name \n";
-            getline(cin,filename);
-            
+            getline(cin, filename);
+
             ToDoList userlist;
-            userlist.listName = filename; 
-            
-            for (int query = 3 ; query > 0;){
+            userlist.listName = filename;
+
+            for (int query = 3; query > 0;) {
 
                 cout << "Plase enter new list element header \n";
-                getline(cin,entry1);
+                getline(cin, entry1);
 
                 cout << "Plase enter new list element description \n";
-                getline(cin,entry2);
+                getline(cin, entry2);
 
                 cout << "Plase enter new list status \n";
                 cin >> statusInput;
 
-                for (char& c : statusInput) c = tolower(c);
-            
-                if(statusInput == "true" || statusInput == "1" || statusInput == "yes"){
+                for (char &c : statusInput)
+                    c = tolower(c);
+
+                if (statusInput == "true" || statusInput == "1" || statusInput == "yes") {
                     entry3 = true;
-                }else{
+                } else {
                     entry3 = false;
                 }
-
 
                 cout << "Again creat new todo ? \n";
                 cout << "yes = 1 \n";
@@ -186,15 +175,15 @@ int main() {
                 cin.clear();
                 cin.ignore(10000, '\n');
 
-                add(userlist,entry1,entry2,entry3);
+                add(userlist, entry1, entry2, entry3);
             }
-            
+
             db.push_back(userlist);
             adddb(db);
 
-        }else {
+        } else {
 
-            ToDoList listch = db[select-1];
+            ToDoList listch = db[select - 1];
             for (auto line : listch.listdb) {
                 cout << line.header << " | " << line.description << " | " << line.status << endl;
             }
@@ -207,7 +196,7 @@ int main() {
             cin.ignore(10000, '\n');
 
             if (editIndex > 0 && editIndex <= listch.listdb.size()) {
-                listelement& elem = listch.listdb[editIndex - 1];
+                listelement &elem = listch.listdb[editIndex - 1];
 
                 cout << "\nEditing item: " << elem.header << " | " << elem.description << " | " << (elem.status ? "Done" : "Not done") << endl;
 
@@ -225,7 +214,8 @@ int main() {
                 string newStatus;
                 getline(cin, newStatus);
                 if (!newStatus.empty()) {
-                    for (char& c : newStatus) c = tolower(c);
+                    for (char &c : newStatus)
+                        c = tolower(c);
                     elem.status = (newStatus == "true" || newStatus == "1" || newStatus == "yes");
                 }
 
@@ -237,11 +227,9 @@ int main() {
             } else {
                 cout << "Edit cancelled.\n";
             }
-
-            
         }
-
+        // hmm
     }
-    
+
     return 0;
 }
